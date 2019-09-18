@@ -56,6 +56,10 @@ namespace Microsoft.Health.Fhir.Web
                     options.KnownProxies.Clear();
                 });
             }
+            else if (dataStore.Equals(KnownDataStores.TableStorage, StringComparison.InvariantCultureIgnoreCase))
+            {
+                fhirServerBuilder.AddExperimentalTableStorage();
+            }
 
             AddApplicationInsightsTelemetry(services);
         }
