@@ -3,11 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core;
@@ -16,14 +16,14 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class FilebasedSearchParameterRegistry : ISearchParameterRegistry
+    public class FilebasedSearchParameterRegistryDataStore : ISearchParameterRegistryDataStore
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Assembly _resourceAssembly;
         private readonly string _unsupportedParamsEmbeddedResourceName;
         private ResourceSearchParameterStatus[] _statusResults;
 
-        public FilebasedSearchParameterRegistry(
+        public FilebasedSearchParameterRegistryDataStore(
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             Assembly resourceAssembly,
             string unsupportedParamsEmbeddedResourceName)
@@ -37,9 +37,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _unsupportedParamsEmbeddedResourceName = unsupportedParamsEmbeddedResourceName;
         }
 
-        public delegate ISearchParameterRegistry Resolver();
+        public delegate ISearchParameterRegistryDataStore Resolver();
 
-        public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
+        public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
         {
             if (_statusResults == null)
             {
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(_statusResults);
         }
 
-        public Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
+        public Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
             // File based registry does not persist runtime updates
             return Task.CompletedTask;
