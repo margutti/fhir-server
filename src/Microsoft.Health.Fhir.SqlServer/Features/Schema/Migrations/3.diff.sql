@@ -1,128 +1,184 @@
-/*************************************************************
-    Search Parameter Registry
-**************************************************************/
+--
+--  STORED PROCEDURE
+--      SelectCurrentSchemaVersion
+--
+--  DESCRIPTION
+--      Selects the current completed schema version
+--
+--  RETURNS
+--      The current version as a result set
+--
+ALTER PROCEDURE dbo.SelectCurrentSchemaVersion
+AS
+BEGIN
+    SET NOCOUNT ON
 
-CREATE TYPE dbo.SearchParamRegistryTableType_1 AS TABLE
-(
-    Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status varchar(10) NOT NULL,
-    IsPartiallySupported bit NOT NULL
-)
-
-CREATE TABLE dbo.SearchParamRegistry
-(
-    Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status varchar(10) NOT NULL,
-    LastUpdated datetimeoffset(7) NULL,
-    IsPartiallySupported bit NOT NULL
-)
-
-CREATE UNIQUE CLUSTERED INDEX IXC_SearchParamRegistry
-ON dbo.SearchParamRegistry
-(
-    Uri
-)
-
+    SELECT MAX(Version)
+    FROM SchemaVersion
+    WHERE Status = 'completed'
+END
 GO
 
 /*************************************************************
-    Stored procedures for the search parameter registry
+    Instance Schema
 **************************************************************/
---
--- STORED PROCEDURE
---     Gets all the search parameters and their statuses.
---
--- DESCRIPTION
---     Retrieves and returns the contents of the search parameter registry.
---
--- RETURN VALUE
---     The search parameters and their statuses.
---
-CREATE PROCEDURE dbo.GetSearchParamStatuses
-AS
-    SET NOCOUNT ON
-    
-    SELECT * FROM dbo.SearchParamRegistry
+CREATE TABLE dbo.InstanceSchema
+(
+    Name varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CurrentVersion int NOT NULL,
+    MaxVersion int NOT NULL,
+    MinVersion int NOT NULL,
+    Timeout datetime2(0) NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_InstanceSchema
+ON dbo.InstanceSchema
+(
+    Name
+)
+
+CREATE NONCLUSTERED INDEX IX_InstanceSchema_Timeout
+ON dbo.InstanceSchema
+(
+    Timeout
+)
+
 GO
 
 --
 -- STORED PROCEDURE
---     Given a table of search parameters, upserts the registry.
+--     Gets schema information given its instance name.
 --
 -- DESCRIPTION
---     If a parameter with a matching URI already exists in the registry, it is updated.
---     If not, a new entry is created.
+--     Retrieves the instance schema record from the InstanceSchema table that has the matching name.
 --
 -- PARAMETERS
---     @searchParamStatuses
---         * The updated or new search parameter statuses
---
-CREATE PROCEDURE dbo.UpsertSearchParamStatus
-    @searchParamStatuses dbo.SearchParamRegistryTableType_1 READONLY
-AS
-    SET NOCOUNT ON
-    SET XACT_ABORT ON
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-    BEGIN TRANSACTION
-
-    DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
-
-    -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsertion.
-    UPDATE dbo.SearchParamRegistry
-    WITH (TABLOCKX)
-    SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
-    FROM dbo.SearchParamRegistry INNER JOIN @searchParamStatuses as sps
-    ON dbo.SearchParamRegistry.Uri = sps.Uri
-
-    INSERT INTO dbo.SearchParamRegistry
-        (Uri, Status, LastUpdated, IsPartiallySupported)
-    SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
-    FROM @searchParamStatuses AS sps
-    WHERE sps.Uri NOT IN
-        (SELECT Uri FROM dbo.SearchParamRegistry) 
-
-    COMMIT TRANSACTION
-GO
-
---
--- STORED PROCEDURE
---     Counts the number of search parameters.
---
--- DESCRIPTION
---     Retrieves and returns the number of rows in the search parameter registry.
+--     @name
+--         * The unique name for a particular instance
 --
 -- RETURN VALUE
---     The number of search parameters in the registry.
+--     The matching record.
 --
-CREATE PROCEDURE dbo.GetSearchParamRegistryCount
+CREATE PROCEDURE dbo.GetInstanceSchemaByName
+    @name varchar(64)
 AS
     SET NOCOUNT ON
-    
-    SELECT COUNT(*) FROM dbo.SearchParamRegistry
+
+    SELECT CurrentVersion, MaxVersion, MinVersion, Timeout
+    FROM dbo.InstanceSchema
+    WHERE Name = @name
 GO
 
 --
 -- STORED PROCEDURE
---     Inserts a search parameter and its status into the search parameter registry.
+--     Update an instance schema.
 --
 -- DESCRIPTION
---     Adds a row to the search parameter registry. This is intended to be called within
---     a transaction that also queries if the table is empty and needs to be initialized.
+--     Modifies an existing record in the InstanceSchema table.
 --
 -- PARAMETERS
---     @searchParamStatuses
---         * The updated search parameter statuses
+--    @name
+--         * The unique name for a particular instance
+--     @maxVersion
+--         * The maximum supported schema version for the given instance
+--     @minVersion
+--         * The minimum supported schema version for the given instance
+--     @addMinutesOnTimeout
+--         * The minutes to add
 --
-CREATE PROCEDURE dbo.InsertIntoSearchParamRegistry
-    @searchParamStatuses dbo.SearchParamRegistryTableType_1 READONLY
+CREATE PROCEDURE dbo.UpsertInstanceSchema
+    @name varchar(64),
+    @maxVersion int,
+    @minVersion int,
+    @addMinutesOnTimeout int
+    
 AS
     SET NOCOUNT ON
 
-    DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
+    DECLARE @timeout datetime2(0) = DATEADD(minute, @addMinutesOnTimeout, SYSUTCDATETIME())
+    DECLARE @currentVersion int = (SELECT COALESCE(MAX(Version), 0)
+                                  FROM dbo.SchemaVersion
+                                  WHERE  Status = 'completed' OR Status = 'complete' AND Version <= @maxVersion)
+   IF EXISTS(SELECT *
+        FROM dbo.InstanceSchema
+        WHERE Name = @name)
+    BEGIN
+        UPDATE dbo.InstanceSchema
+        SET CurrentVersion = @currentVersion, MaxVersion = @maxVersion, Timeout = @timeout
+        WHERE Name = @name
+        
+        SELECT @currentVersion
+    END
+    ELSE
+    BEGIN
+        INSERT INTO dbo.InstanceSchema
+            (Name, CurrentVersion, MaxVersion, MinVersion, Timeout)
+        VALUES
+            (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
+
+        SELECT @currentVersion
+    END
+GO
+
+--
+-- STORED PROCEDURE
+--     Delete instance schema information.
+--
+-- DESCRIPTION
+--     Delete all the expired records in the InstanceSchema table.
+--
+CREATE PROCEDURE dbo.DeleteInstanceSchema
     
-    INSERT INTO dbo.SearchParamRegistry
-        (Uri, Status, LastUpdated, IsPartiallySupported)
-    SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
-    FROM @searchParamStatuses AS sps
+AS
+    SET NOCOUNT ON
+
+    DELETE FROM dbo.InstanceSchema
+    WHERE Timeout < SYSUTCDATETIME()
+
+GO
+
+--
+--  STORED PROCEDURE
+--      SelectCompatibleSchemaVersions
+--
+--  DESCRIPTION
+--      Selects the compatible schema versions
+--
+--  RETURNS
+--      The maximum and minimum compatible versions
+--
+CREATE PROCEDURE dbo.SelectCompatibleSchemaVersions
+
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    SELECT MAX(MinVersion), MIN(MaxVersion)
+    FROM dbo.InstanceSchema
+    WHERE Timeout > SYSUTCDATETIME()
+END
+GO
+
+--
+--  STORED PROCEDURE
+--      SelectCurrentVersionsInformation
+--
+--  DESCRIPTION
+--      Selects the current schema versions information
+--
+--  RETURNS
+--      The current versions, status and server names using that version
+--
+CREATE PROCEDURE dbo.SelectCurrentVersionsInformation
+
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    SELECT SV.Version, SV.Status, STRING_AGG(SCH.NAME, ',')
+    FROM dbo.SchemaVersion AS SV LEFT OUTER JOIN dbo.InstanceSchema AS SCH
+    ON SV.Version = SCH.CurrentVersion
+    GROUP BY Version, Status
+
+END
 GO
