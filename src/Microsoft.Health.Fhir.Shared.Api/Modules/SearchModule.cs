@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json"))
                 .Transient()
                 .AsSelf()
-                .AsService<ISearchParameterRegistryDataStore>()
+                .AsService<IStatusRegistryDataStore>()
                 .AsDelegate<FilebasedSearchParameterRegistryDataStore.Resolver>();
 
             services.Add<SearchParameterSupportResolver>()

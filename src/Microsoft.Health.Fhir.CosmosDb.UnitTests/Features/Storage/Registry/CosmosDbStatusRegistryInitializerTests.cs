@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 
         public CosmosDbStatusRegistryInitializerTests()
         {
-            ISearchParameterRegistryDataStore searchParameterRegistry = Substitute.For<ISearchParameterRegistryDataStore>();
+            IStatusRegistryDataStore searchParameterRegistry = Substitute.For<IStatusRegistryDataStore>();
             _cosmosDocumentQueryFactory = Substitute.For<ICosmosDocumentQueryFactory>();
 
             _initializer = new CosmosDbStatusRegistryInitializer(

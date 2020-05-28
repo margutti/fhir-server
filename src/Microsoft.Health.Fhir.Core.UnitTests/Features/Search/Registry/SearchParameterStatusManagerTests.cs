@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
 
         private readonly SearchParameterStatusManager _manager;
-        private readonly Func<IScoped<ISearchParameterRegistryDataStore>> _searchParameterRegistryFactory;
+        private readonly Func<IScoped<IStatusRegistryDataStore>> _searchParameterRegistryFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IMediator _mediator;
         private readonly SearchParameterInfo[] _searchParameterInfos;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
         public SearchParameterStatusManagerTests()
         {
-            _searchParameterRegistryFactory = Substitute.For<Func<IScoped<ISearchParameterRegistryDataStore>>>();
+            _searchParameterRegistryFactory = Substitute.For<Func<IScoped<IStatusRegistryDataStore>>>();
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 _searchParameterSupportResolver,
                 _mediator);
 
-            using (IScoped<ISearchParameterRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
+            using (IScoped<IStatusRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
             {
                 registry.Value.GetSearchParameterStatuses()
                     .Returns(new[]
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             await _manager.EnsureInitialized();
 
-            using (IScoped<ISearchParameterRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
+            using (IScoped<IStatusRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
             {
                 await registry.Value
                     .Received()

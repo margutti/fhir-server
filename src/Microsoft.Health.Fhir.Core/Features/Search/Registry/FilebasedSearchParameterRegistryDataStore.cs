@@ -16,7 +16,7 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class FilebasedSearchParameterRegistryDataStore : ISearchParameterRegistryDataStore
+    public class FilebasedSearchParameterRegistryDataStore : IStatusRegistryDataStore
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Assembly _resourceAssembly;
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _unsupportedParamsEmbeddedResourceName = unsupportedParamsEmbeddedResourceName;
         }
 
-        public delegate ISearchParameterRegistryDataStore Resolver();
+        public delegate IStatusRegistryDataStore Resolver();
 
         public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
         {

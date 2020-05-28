@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
     public class CosmosDbStatusRegistryInitializer : IFhirCollectionUpdater
     {
-        private readonly ISearchParameterRegistryDataStore _filebasedRegistry;
+        private readonly IStatusRegistryDataStore _filebasedRegistry;
         private readonly ICosmosDocumentQueryFactory _queryFactory;
 
         public CosmosDbStatusRegistryInitializer(

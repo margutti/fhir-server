@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public interface ISearchParameterRegistryDataStore
+    public interface IStatusRegistryDataStore
     {
         Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken = default);
 

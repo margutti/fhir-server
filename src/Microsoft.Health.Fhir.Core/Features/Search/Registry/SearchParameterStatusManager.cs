@@ -20,13 +20,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public class SearchParameterStatusManager : IRequireInitializationOnFirstRequest
     {
-        private readonly Func<IScoped<ISearchParameterRegistryDataStore>> _searchParameterRegistryFactory;
+        private readonly Func<IScoped<IStatusRegistryDataStore>> _searchParameterRegistryFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
 
         public SearchParameterStatusManager(
-            Func<IScoped<ISearchParameterRegistryDataStore>> searchParameterRegistryFactory,
+            Func<IScoped<IStatusRegistryDataStore>> searchParameterRegistryFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IMediator mediator)
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             Dictionary<Uri, ResourceSearchParameterStatus> parameters;
 
-            using (IScoped<ISearchParameterRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
+            using (IScoped<IStatusRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
             {
                 parameters = (await registry.Value.GetSearchParameterStatuses()).ToDictionary(x => x.Uri);
             }
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             if (newParameters.Any())
             {
-                using (IScoped<ISearchParameterRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
+                using (IScoped<IStatusRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
                 {
                     await registry.Value.UpsertStatuses(newParameters);
                 }

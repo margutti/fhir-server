@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
     internal class SqlServerStatusRegistryInitializer : IStartable
     {
-        private readonly ISearchParameterRegistryDataStore _filebasedRegistry;
+        private readonly IStatusRegistryDataStore _filebasedRegistry;
         private readonly Func<IScoped<SqlServerStatusRegistryDataStore>> _searchParameterRegistryFactory;
         private readonly ITransactionHandler _transactionHandler;
 

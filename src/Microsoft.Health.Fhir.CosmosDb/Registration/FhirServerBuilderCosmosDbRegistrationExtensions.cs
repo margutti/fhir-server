@@ -142,7 +142,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces()
-                .AsFactory<IScoped<ISearchParameterRegistryDataStore>>();
+                .AsFactory<IScoped<IStatusRegistryDataStore>>();
 
             return fhirServerBuilder;
         }
