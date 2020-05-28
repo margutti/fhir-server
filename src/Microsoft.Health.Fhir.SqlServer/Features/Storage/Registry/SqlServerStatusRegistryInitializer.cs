@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -13,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
-    internal class SqlServerStatusRegistryInitializer : IStartable
+    internal class SqlServerStatusRegistryInitializer : IStatusRegistryInitializer
     {
         private readonly IStatusRegistryDataStore _filebasedRegistry;
         private readonly Func<IScoped<SqlServerStatusRegistryDataStore>> _searchParameterRegistryFactory;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _transactionHandler = transactionHandler;
         }
 
-        public async void Start()
+        public async Task EnsureInitialized()
         {
             using (IScoped<SqlServerStatusRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
             {

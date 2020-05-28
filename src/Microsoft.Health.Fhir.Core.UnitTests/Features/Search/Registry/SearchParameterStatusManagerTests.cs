@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private readonly SearchParameterInfo[] _searchParameterInfos;
         private readonly SearchParameterInfo _queryParameter;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
+        private readonly IStatusRegistryInitializer _statusRegistryInitializer;
 
         public SearchParameterStatusManagerTests()
         {
@@ -43,12 +44,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
+            _statusRegistryInitializer = Substitute.For<IStatusRegistryInitializer>();
 
             _manager = new SearchParameterStatusManager(
                 _searchParameterRegistryFactory,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
-                _mediator);
+                _mediator,
+                _statusRegistryInitializer);
 
             using (IScoped<IStatusRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
             {
@@ -105,6 +108,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
                 .Returns((true, false));
+
+            _statusRegistryInitializer
+                .EnsureInitialized()
+                .Returns(Task.CompletedTask);
         }
 
         [Fact]

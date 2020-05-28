@@ -24,26 +24,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
+        private readonly IStatusRegistryInitializer _statusRegistryInitializer;
 
         public SearchParameterStatusManager(
             Func<IScoped<IStatusRegistryDataStore>> searchParameterRegistryFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ISearchParameterSupportResolver searchParameterSupportResolver,
-            IMediator mediator)
+            IMediator mediator,
+            IStatusRegistryInitializer statusRegistryInitializer)
         {
             EnsureArg.IsNotNull(searchParameterRegistryFactory, nameof(searchParameterRegistryFactory));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(statusRegistryInitializer, nameof(statusRegistryInitializer));
 
             _searchParameterRegistryFactory = searchParameterRegistryFactory;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _mediator = mediator;
+            _statusRegistryInitializer = statusRegistryInitializer;
         }
 
         public async Task EnsureInitialized()
         {
+            await _statusRegistryInitializer.EnsureInitialized();
+
             var updated = new List<SearchParameterInfo>();
             var newParameters = new List<ResourceSearchParameterStatus>();
 

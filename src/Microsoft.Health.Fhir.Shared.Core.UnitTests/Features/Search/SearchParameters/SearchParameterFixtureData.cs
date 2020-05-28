@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
@@ -59,11 +60,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 manager,
                 managerType.Assembly,
                 $"{managerType.Namespace}.unsupported-search-parameters.json");
+
+            var statusRegistryInitializer = Substitute.For<IStatusRegistryInitializer>();
+            statusRegistryInitializer.EnsureInitialized().Returns(Task.CompletedTask);
+
             var statusManager = new SearchParameterStatusManager(
                 () => searchParameterRegistryFactory.CreateMockScope(),
                 manager,
                 new SearchParameterSupportResolver(manager, Manager),
-                Substitute.For<IMediator>());
+                Substitute.For<IMediator>(),
+                statusRegistryInitializer);
             statusManager.EnsureInitialized().GetAwaiter().GetResult();
 
             return manager;
