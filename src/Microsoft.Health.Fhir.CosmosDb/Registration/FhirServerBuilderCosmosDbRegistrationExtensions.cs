@@ -112,7 +112,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<CosmosDbStatusRegistryInitializer>()
                 .Transient()
-                .AsService<IFhirCollectionUpdater>();
+                .AsImplementedInterfaces();
 
             services.TypesInSameAssemblyAs<IFhirStoredProcedure>()
                 .AssignableTo<IStoredProcedure>()

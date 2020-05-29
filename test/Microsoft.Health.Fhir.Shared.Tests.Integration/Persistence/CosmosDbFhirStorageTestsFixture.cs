@@ -9,10 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
-using MediatR;
 using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
@@ -48,6 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
         private FilebasedSearchParameterRegistryDataStore _filebasedSearchParameterRegistry;
+        private CosmosDbStatusRegistryInitializer _statusRegistryInitializer;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -90,11 +88,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
                 new FhirStoredProcedureInstaller(fhirStoredProcs),
-                new CosmosDbStatusRegistryInitializer(
-                    () => _filebasedSearchParameterRegistry,
-                    new FhirCosmosDocumentQueryFactory(
-                        new CosmosResponseProcessor(Substitute.For<IFhirRequestContextAccessor>(), Substitute.For<IMediator>(), NullLogger<CosmosResponseProcessor>.Instance),
-                        NullFhirDocumentQueryLogger.Instance)),
             };
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<IDocumentClient>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
@@ -147,6 +140,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _documentClient,
                 _cosmosDataStoreConfiguration.DatabaseId,
                 _cosmosCollectionConfiguration.CollectionId);
+
+            _statusRegistryInitializer = new CosmosDbStatusRegistryInitializer(
+                () => _filebasedSearchParameterRegistry,
+                documentClient,
+                _cosmosDataStoreConfiguration,
+                optionsMonitor,
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration));
         }
 
         public async Task DisposeAsync()
