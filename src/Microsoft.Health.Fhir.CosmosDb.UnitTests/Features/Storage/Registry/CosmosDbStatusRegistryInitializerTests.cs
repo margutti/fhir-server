@@ -5,12 +5,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading;
+using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
-using Microsoft.Azure.Documents.Linq;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
+using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
@@ -22,13 +21,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
     public class CosmosDbStatusRegistryInitializerTests
     {
         private readonly CosmosDbStatusRegistryInitializer _initializer;
-        private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
+        private readonly ICosmosQueryFactory _cosmosDocumentQueryFactory;
         private readonly Uri _testParameterUri;
 
         public CosmosDbStatusRegistryInitializerTests()
         {
             ISearchParameterRegistry searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
-            _cosmosDocumentQueryFactory = Substitute.For<ICosmosDocumentQueryFactory>();
+            _cosmosDocumentQueryFactory = Substitute.For<ICosmosQueryFactory>();
 
             _initializer = new CosmosDbStatusRegistryInitializer(
                 () => searchParameterRegistry,
@@ -52,42 +51,43 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
         [Fact]
         public async Task GivenARegistryInitializer_WhenDatabaseIsNew_SearchParametersShouldBeUpserted()
         {
-            IDocumentQuery<dynamic> documentQuery = Substitute.For<IDocumentQuery<dynamic>>();
-            _cosmosDocumentQueryFactory.Create<dynamic>(Arg.Any<IDocumentClient>(), Arg.Any<CosmosQueryContext>())
+            ICosmosQuery<dynamic> documentQuery = Substitute.For<ICosmosQuery<dynamic>>();
+            _cosmosDocumentQueryFactory.Create<dynamic>(Arg.Any<Container>(), Arg.Any<CosmosQueryContext>())
                 .Returns(documentQuery);
 
             documentQuery
                 .ExecuteNextAsync()
-                .Returns(new FeedResponse<dynamic>(new dynamic[0]));
+                .Returns(Substitute.ForPartsOf<FeedResponse<dynamic>>());
 
-            IDocumentClient documentClient = Substitute.For<IDocumentClient>();
+            Container documentClient = Substitute.For<Container>();
             var relativeCollectionUri = new Uri("/collection1", UriKind.Relative);
 
-            await _initializer.ExecuteAsync(documentClient, new DocumentCollection(), relativeCollectionUri);
+            await _initializer.ExecuteAsync(documentClient);
 
-            await documentClient.Received().UpsertDocumentAsync(
-                relativeCollectionUri,
+            await documentClient.Received().UpsertItemAsync(
                 Arg.Is<SearchParameterStatusWrapper>(x => x.Uri == _testParameterUri));
         }
 
         [Fact]
         public async Task GivenARegistryInitializer_WhenDatabaseIsExisting_NothingNeedsToBeDone()
         {
-            IDocumentQuery<dynamic> documentQuery = Substitute.For<IDocumentQuery<dynamic>>();
-            _cosmosDocumentQueryFactory.Create<dynamic>(Arg.Any<IDocumentClient>(), Arg.Any<CosmosQueryContext>())
+            ICosmosQuery<dynamic> documentQuery = Substitute.For<ICosmosQuery<dynamic>>();
+            _cosmosDocumentQueryFactory.Create<object>(Arg.Any<Container>(), Arg.Any<CosmosQueryContext>())
                 .Returns(documentQuery);
+
+            var response = Substitute.ForPartsOf<FeedResponse<object>>();
+            response.GetEnumerator()
+                .Returns(new object[] { new SearchParameterStatusWrapper() }.GetEnumerator());
 
             documentQuery
                 .ExecuteNextAsync()
-                .Returns(new FeedResponse<dynamic>(new dynamic[] { new SearchParameterStatusWrapper() }));
+                .Returns(info => response);
 
-            IDocumentClient documentClient = Substitute.For<IDocumentClient>();
-            var relativeCollectionUri = new Uri("/collection1", UriKind.Relative);
+            Container documentClient = Substitute.For<Container>();
 
-            await _initializer.ExecuteAsync(documentClient, new DocumentCollection(), relativeCollectionUri);
+            await _initializer.ExecuteAsync(documentClient);
 
-            await documentClient.DidNotReceive().UpsertDocumentAsync(
-                relativeCollectionUri,
+            await documentClient.DidNotReceive().UpsertItemAsync(
                 Arg.Any<SearchParameterStatusWrapper>());
         }
     }

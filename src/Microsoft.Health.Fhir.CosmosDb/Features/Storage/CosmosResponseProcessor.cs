@@ -10,11 +10,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
@@ -42,57 +42,35 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// Adds request charge to the response headers and throws a <see cref="RequestRateExceededException"/>
         /// if the status code is 429.
         /// </summary>
-        /// <param name="ex">The exception</param>
-        public async Task ProcessException(Exception ex)
+        /// <param name="response">The response that has errored</param>
+        public Task ProcessException(ResponseMessage response)
         {
-            if (_fhirRequestContextAccessor.FhirRequestContext == null)
+            if (!response.IsSuccessStatusCode)
             {
-                return;
-            }
-
-            EnsureArg.IsNotNull(ex, nameof(ex));
-
-            if (ex is DocumentClientException dce)
-            {
-                await ProcessResponse(sessionToken: null, dce.RequestCharge, dce.StatusCode);
-
-                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    string retryHeader = response.Headers["Retry-After"];
+                    throw new RequestRateExceededException(TimeSpan.TryParse(retryHeader, out TimeSpan timeSpan) ? timeSpan : (TimeSpan?)null);
                 }
-                else if (dce.Message.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase))
+                else if (response.ErrorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase))
                 {
                     throw new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
                 }
-                else if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge
-                         || (dce.StatusCode == HttpStatusCode.BadRequest && dce.Message.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase)))
+                else if (response.StatusCode == HttpStatusCode.RequestEntityTooLarge
+                         || (response.StatusCode == HttpStatusCode.BadRequest && response.ErrorMessage.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase)))
                 {
                     // There are multiple known failures relating to RequestEntityTooLarge.
                     // 1. When the document size is ~2mb (just under or at the limit) it can make it into the stored proc and fail on create
                     // 2. Larger documents are rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
                     throw new Core.Exceptions.RequestEntityTooLargeException();
                 }
-                else if (dce.StatusCode == HttpStatusCode.Forbidden && dce.GetSubStatusValue() == CosmosDbSubStatusValues.CustomerManagedKeyInaccessible)
+                else if (response.StatusCode == HttpStatusCode.Forbidden && response.Headers.GetSubStatusValue() == CosmosDbSubStatusValues.CustomerManagedKeyInaccessible)
                 {
                     throw new Core.Exceptions.CustomerManagedKeyInaccessibleException();
                 }
             }
-        }
 
-        public async Task ProcessResponse<T>(T resourceResponseBase)
-            where T : IResourceResponseBase
-        {
-            await ProcessResponse(resourceResponseBase.SessionToken, resourceResponseBase.RequestCharge, resourceResponseBase.StatusCode);
-        }
-
-        public async Task ProcessResponse<T>(IFeedResponse<T> feedResponse)
-        {
-            await ProcessResponse(feedResponse.SessionToken, feedResponse.RequestCharge, statusCode: null);
-        }
-
-        public async Task ProcessResponse<T>(IStoredProcedureResponse<T> storedProcedureResponse)
-        {
-            await ProcessResponse(storedProcedureResponse.SessionToken, storedProcedureResponse.RequestCharge, storedProcedureResponse.StatusCode);
+            return Task.CompletedTask;
         }
 
         /// <summary>

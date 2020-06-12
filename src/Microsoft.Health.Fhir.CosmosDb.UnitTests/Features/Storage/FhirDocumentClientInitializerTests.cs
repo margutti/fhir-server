@@ -4,10 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -18,18 +18,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 {
     public class FhirDocumentClientInitializerTests
     {
-        private readonly FhirDocumentClientInitializer _documentClientInitializer;
-
-        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
-        {
-            AllowDatabaseCreation = false,
-            ConnectionMode = ConnectionMode.Direct,
-            ConnectionProtocol = Protocol.Https,
-            DatabaseId = "testdatabaseid",
-            Host = "https://fakehost",
-            Key = "ZmFrZWtleQ==",   // "fakekey"
-            PreferredLocations = null,
-        };
+        private readonly FhirCosmosClientInitializer _documentClientInitializer;
 
         private readonly IDocumentClient _documentClient = Substitute.For<IDocumentClient>();
         private readonly ICollectionInitializer _collectionInitializer1 = Substitute.For<ICollectionInitializer>();
@@ -42,13 +31,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
-            _documentClientInitializer = new FhirDocumentClientInitializer(documentClientTestProvider, fhirRequestContextAccessor, cosmosResponseProcessor, NullLogger<FhirDocumentClientInitializer>.Instance);
+            _documentClientInitializer = new FhirCosmosClientInitializer(documentClientTestProvider, fhirRequestContextAccessor, cosmosResponseProcessor, NullLogger<FhirDocumentClientInitializer>.Instance);
 
             _collectionInitializers = new List<ICollectionInitializer> { _collectionInitializer1, _collectionInitializer2 };
             _documentClient.CreateDatabaseIfNotExistsAsync(Arg.Any<Database>(), Arg.Any<RequestOptions>()).Returns(Substitute.For<ResourceResponse<Database>>());
-
-            _cosmosDataStoreConfiguration.RetryOptions.MaxNumberOfRetries = 10;
-            _cosmosDataStoreConfiguration.RetryOptions.MaxWaitTimeInSeconds = 99;
         }
 
         [Fact]
